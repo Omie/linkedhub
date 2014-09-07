@@ -31,8 +31,8 @@ func getData(url string) []byte {
 	return body
 }
 
-func JsonToMap(jsondata []byte) map[string]interface{} {
-    //fmt.Println("--- reached JsonToMap")
+func jsonToMap(jsondata []byte) map[string]interface{} {
+    //fmt.Println("--- reached jsonToMap")
 	var f interface{}
 	err := json.Unmarshal(jsondata, &f)
 	check(err)
@@ -41,8 +41,8 @@ func JsonToMap(jsondata []byte) map[string]interface{} {
 	return m
 }
 
-func JsonToList(jsondata []byte) []interface{} {
-    //fmt.Println("--- reached JsonToList")
+func jsonToList(jsondata []byte) []interface{} {
+    //fmt.Println("--- reached jsonToList")
 	var f interface{}
 	err := json.Unmarshal(jsondata, &f)
 	check(err)
@@ -54,7 +54,7 @@ func JsonToList(jsondata []byte) []interface{} {
 func getReposURL(username string) string {
     //fmt.Println("--- reached getReposURL for ", username)
 	data := getData("https://api.github.com/users/" + username)
-	json := JsonToMap(data)
+	json := jsonToMap(data)
 	str := json["repos_url"].(string)
 	return str
 }
@@ -62,10 +62,10 @@ func getReposURL(username string) string {
 func processCollaborators() {
 	for {
         //fmt.Println("--- reached processCollaborators")
-		collab_url := <-collabs
-        //fmt.Println(collab_url)
-		data := getData(collab_url)
-		json := JsonToList(data)
+		collabURL := <-collabs
+        //fmt.Println(collabURL)
+		data := getData(collabURL)
+		json := jsonToList(data)
 		//for each collaborator
 		for _, v := range json {
 			if m, ok := v.(map[string]interface{}); ok {
@@ -94,17 +94,17 @@ func processRepos() {
         //fmt.Println("--- reached processRepos")
 		repo := <-repos
 		data := getData(repo) //get a list of repositories
-		json := JsonToList(data)
+		json := jsonToList(data)
 		//for each repo
 		for _, v := range json {
 			if m, ok := v.(map[string]interface{}); ok {
 				//handle collabs only if this repo is NOT previously visited
                 temps := m["collaborators_url"].(string)
                 idx := strings.Index(temps, "{")
-                collab_url := temps[:idx]
-				if _, ok := visitedColab[collab_url]; !ok {
-                    visitedColab[collab_url] = collab_url
-                    collabs <- collab_url
+                collabURL := temps[:idx]
+				if _, ok := visitedColab[collabURL]; !ok {
+                    visitedColab[collabURL] = collabURL
+                    collabs <- collabURL
 				} else {
                     //fmt.Println("already visited repo: ", repo)
                 }
