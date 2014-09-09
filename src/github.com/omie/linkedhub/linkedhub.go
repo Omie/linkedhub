@@ -58,17 +58,6 @@ func getData(url string) ([]byte, error) {
         return body, nil
 }
 
-func jsonToList(jsondata []byte) ([]interface{}, error) {
-        log.Println("--- reached jsonToList")
-
-        var f []interface{}
-        if err := json.Unmarshal(jsondata, &f); err != nil {
-            return nil, err
-        }
-
-        return f, nil
-}
-
 func getApiLimit() (int, error) {
     jsonData, err := getData("https://api.github.com/rate_limit")
     if err != nil {
