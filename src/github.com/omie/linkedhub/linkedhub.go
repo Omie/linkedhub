@@ -18,10 +18,13 @@ import (
         "net/http"
         "strings"
         "log"
+        "errors"
+        "github.com/omie/ghlib"
 )
 
-var visitedUsers, visitedRepos = make(map[string]string), make(map[string]string)
-var visitedColab  = map[string]string{}
+var visited = make(map[string]string)
+
+var requestsLeft int = 60
 
 //because Math.Min is for float64
 func min(a, b int) int {
@@ -33,6 +36,12 @@ func min(a, b int) int {
 
 func getData(url string) ([]byte, error) {
         log.Println("--- reached getData for ", url)
+
+        requestsLeft--
+        if requestsLeft < 0 {
+            log.Println("--- LIMIT REACHED ")
+            return nil, errors.New("limit reached")
+        }
 
         resp, err := http.Get(url)
         if err != nil {
@@ -47,19 +56,6 @@ func getData(url string) ([]byte, error) {
 
         return body, nil
 }
-//TODO: declare custom type for User use Tag
-
-//TODO: may be returning only single value back is much better than entire data structure
-func jsonToMap(jsondata []byte) (map[string]interface{}, error) {
-        log.Println("--- reached jsonToMap")
-
-        var f map[string]interface{}
-        if err := json.Unmarshal(jsondata, &f); err != nil {
-            return nil, err
-        }
-
-        return f, nil
-}
 
 func jsonToList(jsondata []byte) ([]interface{}, error) {
         log.Println("--- reached jsonToList")
@@ -72,25 +68,42 @@ func jsonToList(jsondata []byte) ([]interface{}, error) {
         return f, nil
 }
 
+func getApiLimit() (int, error) {
+    jsonData, err := getData("https://api.github.com/rate_limit")
+    if err != nil {
+        return 0, err
+    }
+
+    var limitData ghlib.GhLimit
+    if err := json.Unmarshal(jsonData, &limitData); err != nil {
+        return 0, err
+    }
+    return limitData.Rate.Remaining, nil
+}
+
 func getReposURL(username string) (string, error) {
         log.Println("--- reached getReposURL for ", username)
 
-        data, err := getData("https://api.github.com/users/" + username)
+        userJsonData, err := getData("https://api.github.com/users/" + username)
         if err != nil {
             return "", err
         }
 
-        json, err := jsonToMap(data)
-        if err != nil {
+        var user ghlib.GhUser
+        if err := json.Unmarshal(userJsonData, &user); err != nil {
             return "", err
         }
-
-        str := json["repos_url"].(string)
-        return str, nil
+        log.Println(user)
+        return user.ReposUrl, nil
 }
 
 func processCollaborators(collabURL string) {
-        log.Println("--- reached processCollaborators")
+        log.Println("--- reached processCollaborators for ", collabURL)
+        if _, exists := visited[collabURL]; exists {
+            log.Println("--- skipped ", collabURL)
+            return
+        }
+        visited[collabURL] = collabURL
 
         data, err := getData(collabURL)
         if err != nil {
@@ -112,68 +125,72 @@ func processCollaborators(collabURL string) {
 
             //handle user if not previously listed
             tempUser := m["login"].(string)
-            if _, exists := visitedUsers[tempUser]; exists {
+            if _, exists := visited[tempUser]; exists {
                 continue
             }
 
             //We found new user in network
             log.Println("User : ", tempUser)
-            visitedUsers[tempUser] = tempUser
+            visited[tempUser] = tempUser
             tempRepoURL := m["repos_url"].(string)
 
             //make a call to processRepo(tempRepoURL)
             processRepos(tempRepoURL)
-            visitedRepos[tempRepoURL] = tempRepoURL
         } //end for
 }
 
 func processRepos(repoURL string) {
         log.Println("--- reached processRepos for ", repoURL)
+        if _, exists := visited[repoURL]; exists {
+            log.Println("--- skipped ", repoURL)
+            return
+        }
+        visited[repoURL] = repoURL
 
-        data, err := getData(repoURL) //get a list of repositories
+        repoData, err := getData(repoURL) //get a list of repositories
         if err != nil {
             log.Println("err while getting data", err)
             return
         }
 
-        jsonList, err := jsonToList(data)
+        var repoList ghlib.GhRepoList
+        err = json.Unmarshal(repoData, &repoList)
+        //jsonList, err := jsonToList(data)
         if err != nil {
-            log.Println("err while converting list", err)
+            log.Println("Error while parsing repo list: ", err)
             return
         }
+        log.Println(repoList)
 
-        m := min(len(jsonList), 2)
-        jsonList = jsonList[:m] //limit to only 2 entries for time being
+        m := min(len(repoList.Repositories), 2)
+        repositories := repoList.Repositories[:m] //limit to only 2 entries for time being
 
-        //for each repo
-        for _, v := range jsonList {
-            m, ok := v.(map[string]interface{})
-            if !ok {
-                log.Println("err while converting to map")
-                return
-            }
-
-            //handle collabs only if this repo is NOT previously visited
-            tempCollabsURL := m["collaborators_url"].(string)
+        for _, repo := range repositories {
+            tempCollabsURL := repo.CollaboratorsUrl
             idx := strings.Index(tempCollabsURL, "{")
             //use bytes package for serious string manipulation. much faster
             collabURL := tempCollabsURL[:idx]
-
-            if repo, exists := visitedColab[collabURL]; exists {
-                log.Println("already visited repo: ", repo )
-                continue
-            }
-
-            visitedColab[collabURL] = collabURL
             processCollaborators(collabURL)
+        }
 
-        } //end for
 } //end processRepos
 
 func main() {
 
+    //find out current API limit
+    limit, err := getApiLimit()
+    if err != nil {
+        log.Println("error while getting limit ")
+        return
+    }
+    if limit <= 10 {
+        log.Println("Too few of API calls left. Not worth it.")
+        return
+    }
+    requestsLeft = limit
+
     //get username from command line
-    var u string = "Omie"
+    var u string = "Omie"   //"mschoch"
     //fmt.Println("Enter github username: ")
     //fmt.Scanln(&u)
 
