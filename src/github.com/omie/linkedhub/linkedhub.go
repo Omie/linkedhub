@@ -13,6 +13,7 @@
 package main
 
 import (
+        "os"
         "fmt"
         "encoding/json"
         "io/ioutil"
@@ -157,16 +158,33 @@ func processRepos(repoURL string) {
 
 } //end processRepos
 
+func setLogging() error {
+    f, err := os.OpenFile("/tmp/linkedhub.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+    if err != nil {
+        return err
+    }
+    defer f.Close()
+
+    log.SetOutput(f)
+    return nil
+}
+
 func main() {
+
+    err := setLogging()
+    if err != nil {
+        fmt.Println("Could not open file for logging")
+        return
+    }
 
     //find out current API limit
     limit, err := getApiLimit()
     if err != nil {
-        log.Println("error while getting limit ")
+        fmt.Println("error while getting limit ")
         return
     }
     if limit <= 10 {
-        log.Println("Too few of API calls left. Not worth it.")
+        fmt.Println("Too few of API calls left. Not worth it.")
         return
     }
     requestsLeft = limit
