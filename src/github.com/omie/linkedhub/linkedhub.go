@@ -20,6 +20,7 @@ import (
         "log"
         "errors"
         "github.com/omie/ghlib"
+        "github.com/goinggo/mapstructure"
 )
 
 var visited = make(map[string]string)
@@ -153,20 +154,23 @@ func processRepos(repoURL string) {
             return
         }
 
-        var repoList ghlib.GhRepoList
-        err = json.Unmarshal(repoData, &repoList)
-        //jsonList, err := jsonToList(data)
+        var sliceMap []map[string]interface{}
+        err = json.Unmarshal(repoData, &sliceMap)
         if err != nil {
             log.Println("Error while parsing repo list: ", err)
             return
         }
-        log.Println(repoList)
+        log.Println("sliceMap: ", sliceMap)
+        var repoList []ghlib.GhRepository
+        err = mapstructure.DecodeSlicePath(sliceMap, &repoList)
+        log.Println(repoList[0])
 
-        m := min(len(repoList.Repositories), 2)
-        repositories := repoList.Repositories[:m] //limit to only 2 entries for time being
+        m := min(len(repoList), 2)
+        repoList = repoList[:m] //limit to only 2 entries for time being
 
-        for _, repo := range repositories {
+        for _, repo := range repoList {
             tempCollabsURL := repo.CollaboratorsUrl
+            log.Println(tempCollabsURL)
             idx := strings.Index(tempCollabsURL, "{")
             //use bytes package for serious string manipulation. much faster
             collabURL := tempCollabsURL[:idx]
