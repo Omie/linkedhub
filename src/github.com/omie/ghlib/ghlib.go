@@ -127,14 +127,11 @@ type GhRepository struct {
     HasWiki bool `json:"has_wiki"`
     ForksCount int `json:"forks_count"`
     MirrorUrl string `json:"mirror_url"`
-    OpenIssues_count string `json:"open_issues_count"`
+    OpenIssuesCount int `json:"open_issues_count"`
     Forks int `json:"forks"`
     OpenIssues int `json:"open_issues"`
     Watchers int `json:"watchers"`
     DefaultBranch string `json:"default_branch"`
 }
 
-type GhRepoList struct {
-    Repositories []GhRepository
-}
 
