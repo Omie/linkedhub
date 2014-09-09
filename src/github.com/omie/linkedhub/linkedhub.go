@@ -13,6 +13,7 @@
 package main
 
 import (
+        "fmt"
         "encoding/json"
         "io/ioutil"
         "net/http"
@@ -104,34 +105,28 @@ func processCollaborators(collabURL string) {
         }
         visited[collabURL] = collabURL
 
-        data, err := getData(collabURL)
+        jsonData, err := getData(collabURL)
         if err != nil {
             return
         }
 
-        jsonList, err := jsonToList(data)
+        var collaborators []*ghlib.GhUser
+        err = json.Unmarshal(jsonData, &collaborators)
         if err != nil {
+            log.Println("Error while parsing collaborators: ", err)
             return
         }
-
         //for each collaborator
-        for _, v := range jsonList {
-            m, ok := v.(map[string]interface{})
-            if !ok {
-                log.Println("collab not ok")
-                break
-            }
-
+        for _, collaborator := range collaborators {
             //handle user if not previously listed
-            tempUser := m["login"].(string)
+            tempUser := collaborator.Login
             if _, exists := visited[tempUser]; exists {
                 continue
             }
-
             //We found new user in network
             log.Println("User : ", tempUser)
             visited[tempUser] = tempUser
-            tempRepoURL := m["repos_url"].(string)
+            tempRepoURL := collaborator.ReposUrl
 
             //make a call to processRepo(tempRepoURL)
             processRepos(tempRepoURL)
@@ -159,8 +154,8 @@ func processRepos(repoURL string) {
             return
         }
 
-        m := min(len(repoList), 2)
-        repoList = repoList[:m] //limit to only 2 entries for time being
+        //m := min(len(repoList), 2)
+        //repoList = repoList[:m] //limit to only 2 entries for time being
 
         for _, repo := range repoList {
             tempCollabsURL := repo.CollaboratorsUrl
@@ -188,9 +183,9 @@ func main() {
     requestsLeft = limit
 
     //get username from command line
-    var u string = "mschoch"
-    //fmt.Println("Enter github username: ")
-    //fmt.Scanln(&u)
+    var u string
+    fmt.Println("Enter github username: ")
+    fmt.Scanln(&u)
 
     repoURL, err := getReposURL(u)
     if err != nil {
