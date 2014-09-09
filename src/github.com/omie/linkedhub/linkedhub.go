@@ -28,6 +28,8 @@ var visited = make(map[string]string)
 
 var requestsLeft int = 60
 
+var username, password string
+
 //because Math.Min is for float64
 func min(a, b int) int {
     if a <= b {
@@ -45,7 +47,12 @@ func getData(url string) ([]byte, error) {
             return nil, errors.New("limit reached")
         }
 
-        resp, err := http.Get(url)
+        client := &http.Client{}
+
+        /* Authenticate */
+        req, err := http.NewRequest("GET", url, nil)
+        req.SetBasicAuth(username, password)
+        resp, err := client.Do(req)
         if err != nil {
             return nil, err
         }
@@ -177,10 +184,16 @@ func main() {
         return
     }
 
+    fmt.Println("Enter github credentials")
+    fmt.Print("username: ")
+    fmt.Scanln(&username)
+    fmt.Print("password: ")
+    fmt.Scanln(&password)
+
     //find out current API limit
     limit, err := getApiLimit()
     if err != nil {
-        fmt.Println("error while getting limit ")
+        fmt.Println("error while getting limit: ", err)
         return
     }
     if limit <= 10 {
@@ -188,6 +201,7 @@ func main() {
         return
     }
     requestsLeft = limit
+    fmt.Println("requestsLeft: ", requestsLeft)
 
     //get username from command line
     var u string
