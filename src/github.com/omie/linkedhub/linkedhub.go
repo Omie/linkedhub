@@ -93,7 +93,6 @@ func getReposURL(username string) (string, error) {
         if err := json.Unmarshal(userJsonData, &user); err != nil {
             return "", err
         }
-        log.Println(user)
         return user.ReposUrl, nil
 }
 
@@ -153,20 +152,19 @@ func processRepos(repoURL string) {
             return
         }
 
-        var repoList ghlib.GhRepoList
+        var repoList []*ghlib.GhRepository
         err = json.Unmarshal(repoData, &repoList)
-        //jsonList, err := jsonToList(data)
         if err != nil {
             log.Println("Error while parsing repo list: ", err)
             return
         }
-        log.Println(repoList)
 
-        m := min(len(repoList.Repositories), 2)
-        repositories := repoList.Repositories[:m] //limit to only 2 entries for time being
+        m := min(len(repoList), 2)
+        repoList = repoList[:m] //limit to only 2 entries for time being
 
-        for _, repo := range repositories {
+        for _, repo := range repoList {
             tempCollabsURL := repo.CollaboratorsUrl
+            log.Println(tempCollabsURL)
             idx := strings.Index(tempCollabsURL, "{")
             //use bytes package for serious string manipulation. much faster
             collabURL := tempCollabsURL[:idx]
@@ -190,7 +188,7 @@ func main() {
     requestsLeft = limit
 
     //get username from command line
-    var u string = "Omie"   //"mschoch"
+    var u string = "mschoch"
     //fmt.Println("Enter github username: ")
     //fmt.Scanln(&u)
 
