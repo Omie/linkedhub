@@ -114,7 +114,7 @@ func processCollaborators(collabURL string) {
                 continue
             }
             //We found new user in network
-            log.Println("User : ", tempUser)
+            fmt.Println("User : ", tempUser)
             visited[tempUser] = tempUser
             tempRepoURL := collaborator.ReposUrl
 
