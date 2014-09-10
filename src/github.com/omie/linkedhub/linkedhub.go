@@ -26,6 +26,7 @@ import (
 type node struct {
     Name string `json:"name"`
     Group int `json:"group"`
+    Image string `json:"image"`
 }
 
 type connection struct {
@@ -145,7 +146,7 @@ func processContributors(contribURL string, currentDepth int, parent int) {
                 fmt.Print("\t|")
             }
             fmt.Print(tempUser, "\n")
-            nodes = append(nodes, node{tempUser, 1})
+            nodes = append(nodes, node{tempUser, 1, contributor.AvatarUrl})
             nodeIdx := len(nodes)-1
             connections = append(connections, connection{parent, nodeIdx, 1})
 

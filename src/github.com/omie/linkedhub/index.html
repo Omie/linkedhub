@@ -47,7 +47,7 @@ d3.json("graph.json", function(error, json) {
       .call(force.drag);
 
   node.append("image")
-      .attr("xlink:href", "https://github.com/favicon.ico")
+      .attr("xlink:href", function(d) { return d.image })
       .attr("x", -8)
       .attr("y", -8)
       .attr("width", 16)
