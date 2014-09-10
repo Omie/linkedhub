@@ -4,8 +4,8 @@
         has repos_url : https://api.github.com/users/Omie/repos
     Repos : https://api.github.com/users/Omie/repos
         returns a list of dict
-        has collaborators_url : https://api.github.com/repos/Omie/configfiles/collaborators
-    Collaborators : https://api.github.com/repos/Omie/configfiles/collaborators
+        has contributors_url : https://api.github.com/repos/Omie/configfiles/contributors
+    Contributors : https://api.github.com/repos/Omie/configfiles/contributors
         returns a list of dict
         has repos_url for each user
 */
@@ -18,7 +18,6 @@ import (
         "encoding/json"
         "io/ioutil"
         "net/http"
-        "strings"
         "log"
         "errors"
         "github.com/omie/ghlib"
@@ -96,29 +95,29 @@ func getReposURL(username string) (string, error) {
         return user.ReposUrl, nil
 }
 
-func processCollaborators(collabURL string, currentDepth int) {
-        log.Println("--- reached processCollaborators for ", collabURL)
-        if _, exists := visited[collabURL]; exists {
-            log.Println("--- skipped ", collabURL)
+func processContributors(contribURL string, currentDepth int) {
+        log.Println("--- reached processContributors for ", contribURL)
+        if _, exists := visited[contribURL]; exists {
+            log.Println("--- skipped ", contribURL)
             return
         }
-        visited[collabURL] = collabURL
+        visited[contribURL] = contribURL
 
-        jsonData, err := getData(collabURL)
+        jsonData, err := getData(contribURL)
         if err != nil {
             return
         }
 
-        var collaborators []*ghlib.GhUser
-        err = json.Unmarshal(jsonData, &collaborators)
+        var contributors []*ghlib.GhUser
+        err = json.Unmarshal(jsonData, &contributors)
         if err != nil {
-            log.Println("Error while parsing collaborators: ", err)
+            log.Println("Error while parsing contributors: ", err)
             return
         }
-        //for each collaborator
-        for _, collaborator := range collaborators {
+        //for each contributor
+        for _, contributor := range contributors {
             //handle user if not previously listed
-            tempUser := collaborator.Login
+            tempUser := contributor.Login
             if _, exists := visited[tempUser]; exists {
                 continue
             }
@@ -128,7 +127,7 @@ func processCollaborators(collabURL string, currentDepth int) {
             }
             fmt.Print(tempUser, "\n")
             visited[tempUser] = tempUser
-            tempRepoURL := collaborator.ReposUrl
+            tempRepoURL := contributor.ReposUrl
 
             //make a call to processRepo(tempRepoURL)
             processRepos(tempRepoURL, currentDepth+1)
@@ -165,12 +164,9 @@ func processRepos(repoURL string, currentDepth int) {
         //repoList = repoList[:m] //limit to only 2 entries for time being
 
         for _, repo := range repoList {
-            tempCollabsURL := repo.CollaboratorsUrl
-            log.Println(tempCollabsURL)
-            idx := strings.Index(tempCollabsURL, "{")
-            //use bytes package for serious string manipulation. much faster
-            collabURL := tempCollabsURL[:idx]
-            processCollaborators(collabURL, currentDepth)
+            contribURL := repo.ContributorsUrl
+            log.Println(contribURL)
+            processContributors(contribURL, currentDepth)
         }
 
 } //end processRepos
