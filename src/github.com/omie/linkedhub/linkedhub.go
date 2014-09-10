@@ -30,6 +30,8 @@ var requestsLeft int = 60
 
 var username, password string
 
+const maxDepth int = 3
+
 //because Math.Min is for float64
 func min(a, b int) int {
     if a <= b {
@@ -94,7 +96,7 @@ func getReposURL(username string) (string, error) {
         return user.ReposUrl, nil
 }
 
-func processCollaborators(collabURL string) {
+func processCollaborators(collabURL string, currentDepth int) {
         log.Println("--- reached processCollaborators for ", collabURL)
         if _, exists := visited[collabURL]; exists {
             log.Println("--- skipped ", collabURL)
@@ -126,12 +128,17 @@ func processCollaborators(collabURL string) {
             tempRepoURL := collaborator.ReposUrl
 
             //make a call to processRepo(tempRepoURL)
-            processRepos(tempRepoURL)
+            processRepos(tempRepoURL, currentDepth+1)
         } //end for
 }
 
-func processRepos(repoURL string) {
+func processRepos(repoURL string, currentDepth int) {
         log.Println("--- reached processRepos for ", repoURL)
+        if currentDepth > maxDepth {
+            log.Println("maxDepth reached")
+            return
+        }
+
         if _, exists := visited[repoURL]; exists {
             log.Println("--- skipped ", repoURL)
             return
@@ -160,7 +167,7 @@ func processRepos(repoURL string) {
             idx := strings.Index(tempCollabsURL, "{")
             //use bytes package for serious string manipulation. much faster
             collabURL := tempCollabsURL[:idx]
-            processCollaborators(collabURL)
+            processCollaborators(collabURL, currentDepth)
         }
 
 } //end processRepos
@@ -205,6 +212,6 @@ func main() {
         return
     }
 
-    processRepos(repoURL)
+    processRepos(repoURL, 0)
 }
 
