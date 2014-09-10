@@ -123,7 +123,10 @@ func processCollaborators(collabURL string, currentDepth int) {
                 continue
             }
             //We found new user in network
-            fmt.Println("User : ", tempUser)
+            for t:=0; t<=currentDepth; t++ {
+                fmt.Print("\t|")
+            }
+            fmt.Print(tempUser, "\n")
             visited[tempUser] = tempUser
             tempRepoURL := collaborator.ReposUrl
 
