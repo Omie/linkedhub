@@ -255,17 +255,18 @@ func main() {
     }
     defer f.Close()
 
-    //log.SetOutput(f)
-    log.SetOutput(ioutil.Discard)
+    log.SetOutput(f)
+    //log.SetOutput(ioutil.Discard)
 
     handleUserInput()
 
     //find out current API limit
-    requestsLeft, err := getAPILimit()
+    limit, err := getAPILimit()
     if err != nil {
         fmt.Println("error while getting api limit: ", err)
         return
     }
+    requestsLeft = limit
     fmt.Println("requests left for this hour: ", requestsLeft)
 
     //get username from command line
@@ -280,6 +281,7 @@ func main() {
     }
 
     processRepos(repoURL, 0, 0)
+    fmt.Println("dumping ", string(len(nodes)), " nodes to json")
     dumpD3Json()
 }
 
