@@ -45,7 +45,7 @@ var requestsLeft int = 60
 
 var username, password string
 
-const maxDepth int = 0
+var maxDepth int = 0
 
 var nodes []node
 var connections []connection
@@ -209,6 +209,8 @@ func main() {
     fmt.Scanln(&username)
     fmt.Print("password: ")
     fmt.Scanln(&password)
+    fmt.Print("Max depth: ")
+    fmt.Scanln(&maxDepth)
 
     //find out current API limit
     limit, err := getApiLimit()
