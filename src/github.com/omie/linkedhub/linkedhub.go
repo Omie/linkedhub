@@ -23,13 +23,32 @@ import (
         "github.com/omie/ghlib"
 )
 
+type node struct {
+    Name string `json:"name"`
+    Group int `json:"group"`
+}
+
+type connection struct {
+    Source int `json:"source"`
+    Target int `json:"target"`
+    Value int `json:"value"`
+}
+
+type graphdata struct {
+    Nodes []node `json:"nodes"`
+    Connections []connection `json:"links"`
+}
+
 var visited = make(map[string]string)
 
 var requestsLeft int = 60
 
 var username, password string
 
-const maxDepth int = 3
+const maxDepth int = 0
+
+var nodes []node
+var connections []connection
 
 //because Math.Min is for float64
 func min(a, b int) int {
@@ -95,7 +114,7 @@ func getReposURL(username string) (string, error) {
         return user.ReposUrl, nil
 }
 
-func processContributors(contribURL string, currentDepth int) {
+func processContributors(contribURL string, currentDepth int, parent int) {
         log.Println("--- reached processContributors for ", contribURL)
         if _, exists := visited[contribURL]; exists {
             log.Println("--- skipped ", contribURL)
@@ -126,15 +145,19 @@ func processContributors(contribURL string, currentDepth int) {
                 fmt.Print("\t|")
             }
             fmt.Print(tempUser, "\n")
+            nodes = append(nodes, node{tempUser, 1})
+            nodeIdx := len(nodes)-1
+            connections = append(connections, connection{parent, nodeIdx, 1})
+
             visited[tempUser] = tempUser
             tempRepoURL := contributor.ReposUrl
 
             //make a call to processRepo(tempRepoURL)
-            processRepos(tempRepoURL, currentDepth+1)
+            processRepos(tempRepoURL, currentDepth+1, nodeIdx)
         } //end for
 }
 
-func processRepos(repoURL string, currentDepth int) {
+func processRepos(repoURL string, currentDepth int, parent int) {
         log.Println("--- reached processRepos for ", repoURL)
         if currentDepth > maxDepth {
             log.Println("maxDepth reached")
@@ -166,7 +189,7 @@ func processRepos(repoURL string, currentDepth int) {
         for _, repo := range repoList {
             contribURL := repo.ContributorsUrl
             log.Println(contribURL)
-            processContributors(contribURL, currentDepth)
+            processContributors(contribURL, currentDepth, parent)
         }
 
 } //end processRepos
@@ -211,6 +234,26 @@ func main() {
         return
     }
 
-    processRepos(repoURL, 0)
+    processRepos(repoURL, 0, 0)
+
+    fw, err := os.OpenFile("graph.json", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0666)
+    if err != nil {
+        fmt.Println("Could not open file for writing json")
+        return
+    }
+    defer fw.Close()
+
+    var gdata = &graphdata {
+        Nodes: nodes, 
+        Connections: connections,
+    }
+    var toWrite []byte
+    toWrite, err = json.Marshal(gdata)
+    if err != nil {
+        fmt.Println("Error marshalling data: ", err)
+    }
+    fw.Write(toWrite)
+
 }
+
 
