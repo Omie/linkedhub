@@ -23,6 +23,7 @@ import (
         "github.com/omie/ghlib"
 )
 
+/*  types used for marhsalling data to json */
 type node struct {
     Name string `json:"name"`
     Group int `json:"group"`
@@ -40,26 +41,26 @@ type graphdata struct {
     Connections []connection `json:"links"`
 }
 
+// keep track of visited URLs and previously known users
 var visited = make(map[string]string)
 var knownUsers = make(map[string]int)
 
-var requestsLeft int = 60
+// gets set to current limit in runtime
+var requestsLeft = 60
 
+// github a/c credentials
 var username, password string
 
-var maxDepth int = 0
+// determines how deep to crawl
+var maxDepth int
 
+// holds list of users found as nodes
+// node-to-node connections using 0 based index
+// as required for d3
 var nodes []node
 var connections []connection
 
-//because Math.Min is for float64
-func min(a, b int) int {
-    if a <= b {
-        return a
-    }
-    return b
-}
-
+// get data from remote url and return unparsed output
 func getData(url string) ([]byte, error) {
         log.Println("--- reached getData for ", url)
 
@@ -76,19 +77,22 @@ func getData(url string) ([]byte, error) {
         req.SetBasicAuth(username, password)
         resp, err := client.Do(req)
         if err != nil {
+            log.Println("error in http request: ", err)
             return nil, err
         }
         defer resp.Body.Close()
 
         body, err := ioutil.ReadAll(resp.Body)
         if err != nil {
+            log.Println("error reading request body: ", err)
             return nil, err
         }
 
         return body, nil
 }
 
-func getApiLimit() (int, error) {
+// determine current API limit
+func getAPILimit() (int, error) {
     jsonData, err := getData("https://api.github.com/rate_limit")
     if err != nil {
         return 0, err
@@ -98,24 +102,35 @@ func getApiLimit() (int, error) {
     if err := json.Unmarshal(jsonData, &limitData); err != nil {
         return 0, err
     }
-    return limitData.Rate.Remaining, nil
+
+    limit := limitData.Rate.Remaining
+    if limit <= 10 {
+        return 0, errors.New("Too few of API calls left. Not worth it.")
+    }
+
+    return limit, nil
 }
 
+// get User details from API, retrieve repos_url for the user and
+// return the same
 func getReposURL(username string) (string, error) {
         log.Println("--- reached getReposURL for ", username)
 
-        userJsonData, err := getData("https://api.github.com/users/" + username)
+        userJSONData, err := getData("https://api.github.com/users/" + username)
         if err != nil {
             return "", err
         }
 
         var user ghlib.GhUser
-        if err := json.Unmarshal(userJsonData, &user); err != nil {
+        if err := json.Unmarshal(userJSONData, &user); err != nil {
             return "", err
         }
         return user.ReposUrl, nil
 }
 
+// repo contributors is a list of maps [ {}, {}]
+// retrieve the list, parse json, for each user:
+//      process user's repositories to move to further depth
 func processContributors(contribURL string, currentDepth int, parent int) {
         log.Println("--- reached processContributors for ", contribURL)
         if _, exists := visited[contribURL]; exists {
@@ -126,28 +141,33 @@ func processContributors(contribURL string, currentDepth int, parent int) {
 
         jsonData, err := getData(contribURL)
         if err != nil {
+            log.Println("error while getting contributors data: ", err)
             return
         }
 
         var contributors []*ghlib.GhUser
         err = json.Unmarshal(jsonData, &contributors)
         if err != nil {
-            log.Println("Error while parsing contributors: ", err)
+            log.Println("error while unmarshalling contributors: ", err)
             return
         }
         //for each contributor
         for _, contributor := range contributors {
-            //handle user if not previously listed
+            //if user is already visited, just mark a connection and move to next
             tempUser := contributor.Login
             if nodeIdx, exists := knownUsers[tempUser]; exists {
                 connections = append(connections, connection{parent, nodeIdx, 1})
                 continue
             }
             //We found new user in network
+            /* this might slow down
             for t:=0; t<=currentDepth; t++ {
                 fmt.Print("\t|")
             }
-            fmt.Print(tempUser, "\n")
+            */
+            fmt.Println(tempUser)
+
+            //push to nodes list and connection list
             nodes = append(nodes, node{tempUser, 1, contributor.AvatarUrl})
             nodeIdx := len(nodes)-1
             connections = append(connections, connection{parent, nodeIdx, 1})
@@ -155,11 +175,14 @@ func processContributors(contribURL string, currentDepth int, parent int) {
             knownUsers[tempUser] = nodeIdx
             tempRepoURL := contributor.ReposUrl
 
-            //make a call to processRepo(tempRepoURL)
+            //get repositories of this new user
             processRepos(tempRepoURL, currentDepth+1, nodeIdx)
+
         } //end for
 }
 
+// process a list of repositories
+// for each repository, find and process collaborators
 func processRepos(repoURL string, currentDepth int, parent int) {
         log.Println("--- reached processRepos for ", repoURL)
         if currentDepth > maxDepth {
@@ -168,80 +191,43 @@ func processRepos(repoURL string, currentDepth int, parent int) {
         }
 
         if _, exists := visited[repoURL]; exists {
-            log.Println("--- skipped ", repoURL)
             return
         }
         visited[repoURL] = repoURL
 
         repoData, err := getData(repoURL) //get a list of repositories
         if err != nil {
-            log.Println("err while getting data", err)
+            log.Println("error while getting repo list data: ", err)
             return
         }
 
         var repoList []*ghlib.GhRepository
         err = json.Unmarshal(repoData, &repoList)
         if err != nil {
-            log.Println("Error while parsing repo list: ", err)
+            log.Println("error while unmarshalling repo list: ", err)
             return
         }
 
-        //m := min(len(repoList), 2)
-        //repoList = repoList[:m] //limit to only 2 entries for time being
-
         for _, repo := range repoList {
             contribURL := repo.ContributorsUrl
-            log.Println(contribURL)
             processContributors(contribURL, currentDepth, parent)
         }
 
 } //end processRepos
 
-func main() {
-    f, err := os.OpenFile("/tmp/linkedhub.log", os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0666)
-    if err != nil {
-        fmt.Println("Could not open file for logging")
-        return
-    }
-    defer f.Close()
-
-    //log.SetOutput(f)
-    log.SetOutput(ioutil.Discard)
-
-    fmt.Println("Enter github credentials")
-    fmt.Print("username: ")
+func handleUserInput() {
+    fmt.Println("Enter Github credentials -")
+    fmt.Print("username(Email address): ")
     fmt.Scanln(&username)
+
     fmt.Print("password: ")
     fmt.Scanln(&password)
+
     fmt.Print("Max depth: ")
     fmt.Scanln(&maxDepth)
+}
 
-    //find out current API limit
-    limit, err := getApiLimit()
-    if err != nil {
-        fmt.Println("error while getting limit: ", err)
-        return
-    }
-    if limit <= 10 {
-        fmt.Println("Too few of API calls left. Not worth it.")
-        return
-    }
-    requestsLeft = limit
-    fmt.Println("requestsLeft: ", requestsLeft)
-
-    //get username from command line
-    var u string
-    fmt.Println("Enter github username: ")
-    fmt.Scanln(&u)
-
-    repoURL, err := getReposURL(u)
-    if err != nil {
-        log.Println("error while getting repo url for: ", u)
-        return
-    }
-
-    processRepos(repoURL, 0, 0)
-
+func dumpD3Json() {
     fw, err := os.OpenFile("graph.json", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0666)
     if err != nil {
         fmt.Println("Could not open file for writing json")
@@ -259,7 +245,42 @@ func main() {
         fmt.Println("Error marshalling data: ", err)
     }
     fw.Write(toWrite)
+}
 
+func main() {
+    f, err := os.OpenFile("/tmp/linkedhub.log", os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0666)
+    if err != nil {
+        fmt.Println("Could not open file for logging")
+        return
+    }
+    defer f.Close()
+
+    //log.SetOutput(f)
+    log.SetOutput(ioutil.Discard)
+
+    handleUserInput()
+
+    //find out current API limit
+    requestsLeft, err := getAPILimit()
+    if err != nil {
+        fmt.Println("error while getting api limit: ", err)
+        return
+    }
+    fmt.Println("requests left for this hour: ", requestsLeft)
+
+    //get username from command line
+    var u string
+    fmt.Println("Enter github username to start with: ")
+    fmt.Scanln(&u)
+
+    repoURL, err := getReposURL(u)
+    if err != nil {
+        log.Println("error while getting repo url for: ", u)
+        return
+    }
+
+    processRepos(repoURL, 0, 0)
+    dumpD3Json()
 }
 
 
