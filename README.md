@@ -7,12 +7,11 @@ Crawl through user's repositories to find other collaborators and repeat.
 
 Currently work-in-progress.
 
-![linkedhub](https://raw.githubusercontent.com/Omie/linkedhub/screenshot/linkedhub.png)
+[Demo output](http://omkarnath.me/linkedhub/)
 
 TODO:
-- Build a graph of connections
-- Write out html document that uses something like d3 to display collaborator network
-
+- Code cleanup
+- Test
 
 
 MIT License
