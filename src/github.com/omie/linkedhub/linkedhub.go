@@ -41,6 +41,7 @@ type graphdata struct {
 }
 
 var visited = make(map[string]string)
+var knownUsers = make(map[string]int)
 
 var requestsLeft int = 60
 
@@ -138,7 +139,8 @@ func processContributors(contribURL string, currentDepth int, parent int) {
         for _, contributor := range contributors {
             //handle user if not previously listed
             tempUser := contributor.Login
-            if _, exists := visited[tempUser]; exists {
+            if nodeIdx, exists := knownUsers[tempUser]; exists {
+                connections = append(connections, connection{parent, nodeIdx, 1})
                 continue
             }
             //We found new user in network
@@ -150,7 +152,7 @@ func processContributors(contribURL string, currentDepth int, parent int) {
             nodeIdx := len(nodes)-1
             connections = append(connections, connection{parent, nodeIdx, 1})
 
-            visited[tempUser] = tempUser
+            knownUsers[tempUser] = nodeIdx
             tempRepoURL := contributor.ReposUrl
 
             //make a call to processRepo(tempRepoURL)
@@ -203,7 +205,8 @@ func main() {
     }
     defer f.Close()
 
-    log.SetOutput(f)
+    //log.SetOutput(f)
+    log.SetOutput(ioutil.Discard)
 
     fmt.Println("Enter github credentials")
     fmt.Print("username: ")
