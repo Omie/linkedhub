@@ -165,24 +165,15 @@ func processRepos(repoURL string) {
 
 } //end processRepos
 
-func setLogging() error {
-    f, err := os.OpenFile("/tmp/linkedhub.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-    if err != nil {
-        return err
-    }
-    defer f.Close()
-
-    log.SetOutput(f)
-    return nil
-}
-
 func main() {
-
-    err := setLogging()
+    f, err := os.OpenFile("/tmp/linkedhub.log", os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0666)
     if err != nil {
         fmt.Println("Could not open file for logging")
         return
     }
+    defer f.Close()
+
+    log.SetOutput(f)
 
     fmt.Println("Enter github credentials")
     fmt.Print("username: ")
