@@ -9,9 +9,8 @@ Currently work-in-progress.
 
 [Demo output](http://omkarnath.me/linkedhub/)
 
-TODO:
-- Code cleanup
-- Test
+![linkedhub](https://raw.githubusercontent.com/Omie/linkedhub/screenshot/linkedhub.png)
 
 
 MIT License
+
