@@ -26,8 +26,6 @@ How to use
 Demo
 -----
 
-[Demo output](http://omkarnath.me/linkedhub/)
-
 Screenshot
 
 ![linkedhub](https://raw.githubusercontent.com/Omie/linkedhub/screenshot/linkedhub.png)
